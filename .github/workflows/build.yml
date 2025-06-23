@@ -21,6 +21,10 @@ jobs:
         run: npm install
       - name: Docker Login
         run: docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Docker Scout Scan
+        run: |
+          docker-scout quickview fs://.
+          docker-scout cves fs://.
       - name: Docker build and push
         run: |
           # Run commands to build and push Docker images
@@ -28,6 +32,12 @@ jobs:
           docker tag myntra rahul70/myntra:latest
           docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker push rahul70/myntra:latest
+        env:
+          DOCKER_CLI_ACI: 1
+      - name: Docker Scout Image Scan
+        run: |
+          docker-scout quickview rahul70/myntra:latest
+          docker-scout cves rahul70/myntra:latest
   deploy:
    needs: build-analyze-scan
    runs-on: [self-hosted]
