@@ -20,4 +20,22 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          
+      - name: nom install dependency
+        run: npm install
+      - name: docker login
+        run: docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB.TOKEN }}
+      - name: docker build and push
+        run: |
+          docker build -t myntra .
+          docker tag myntra rahul70/myntra:latest
+          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB.TOKEN }}
+          docker push rahul70/myntra:latest
+  deploy:
+    needs: build-analyze-scan
+    runs-on: [self-hosted]
+    steps:
+      - name: docker image pull
+        run: docker pull rahul70/myntra:latest
+      - name: deploy to container
+        run: docker run -d --name myntra rahul70/myntra:latest
+      
