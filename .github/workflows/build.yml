@@ -1,4 +1,4 @@
-name: Build
+name: Build,analyze,scan
 
 on:
   push:
@@ -7,14 +7,48 @@ on:
 
 
 jobs:
-  build:
+  build-analyze-scan:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     steps:
-      - uses: actions/checkout@v2
+      - name: git checkout
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      - uses: sonarsource/sonarqube-scan-action@master
+      - name: scan with sonarqube
+        uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: install dependencies
+        run: npm install
+      
+      - name: Docker login 
+        run: docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKEHUB_TOKEN }}
+      
+      - name: docker build and push 
+        run: |
+          docker build -t myntra . 
+          docker tag myntra rahul70/myntra:latest
+          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKEHUB_TOKEN }} 
+          docker push rahul70/myntra:latest
+      
+      - name: trivy image scan 
+        run: trivy image rahul70/myntra:latest
+  deploy:
+    needs: build-analyze-scan
+    runs-on: [self-hosted]
+    steps:
+      - name: docker pull image 
+        run: docker pull rahul70/myntra:latest
+      
+      - name: deploy to container 
+        run: docker run -d --name myntra -p 3000:3000 rahul70/myntra:latest
+
+      - name: update to kubeconfig
+        run: aws eks --region us-east-1 update-kubeconfig --name EKS_CLOUD 
+
+      - name: deploy to kubernetes
+        run: kubectl apply -f deployment-service.yml
+      
